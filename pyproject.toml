@@ -1,0 +1,20 @@
+[project]
+name = "ask-foreign-agent-skill"
+version = "0.1.0"
+description = "Bridge skill: lets a remote LLM agent use local tools via Claude as intermediary"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-core>=0.3",
+    "langchain-openai>=0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
