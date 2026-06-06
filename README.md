@@ -43,7 +43,7 @@ In peer mode, only `bash` is exposed as a tool. The remote agent has full shell 
 **Peer mode grants the remote agent shell access to the target node.** Consider the following before use:
 
 - The LLM is not sandboxed. A sufficiently adversarial prompt — including content read from source files — could cause the remote agent to request destructive bash commands that execute on the remote node.
-- The SSH key used (`$SSH_USER`) has full shell access. Use a dedicated agent user with restricted permissions where possible, and prefer nodes that are not shared with other workloads.
+- The SSH key used (`$AGENT_SSH_USER`) has full shell access. Use a dedicated agent user with restricted permissions where possible, and prefer nodes that are not shared with other workloads.
 - Treat the remote node as an execution environment for agent work, not a production machine.
 - Review results (diff or PR) before merging. Never auto-merge output from a remote agent.
 

@@ -16,7 +16,7 @@ def reset_context():
 
 
 def test_run_command_ssh_mode_constructs_ssh_call(monkeypatch):
-    monkeypatch.setenv('SSH_USER', 'agent')
+    monkeypatch.setenv('AGENT_SSH_USER', 'agent')
     _context.ssh_node = 'gollum'
     _context.working_directory = '/tmp/myrepo'
 
@@ -31,7 +31,7 @@ def test_run_command_ssh_mode_constructs_ssh_call(monkeypatch):
 
 
 def test_run_command_ssh_mode_no_ssh_user(monkeypatch):
-    monkeypatch.delenv('SSH_USER', raising=False)
+    monkeypatch.delenv('AGENT_SSH_USER', raising=False)
     _context.ssh_node = 'gollum'
     _context.working_directory = '/tmp/myrepo'
 
@@ -58,7 +58,7 @@ def test_run_command_local_mode_unchanged(monkeypatch):
 
 
 def test_run_command_ssh_mode_includes_stderr_on_failure(monkeypatch):
-    monkeypatch.setenv('SSH_USER', 'agent')
+    monkeypatch.setenv('AGENT_SSH_USER', 'agent')
     _context.ssh_node = 'gollum'
     _context.working_directory = '/tmp/myrepo'
 
@@ -71,7 +71,7 @@ def test_run_command_ssh_mode_includes_stderr_on_failure(monkeypatch):
 
 
 def test_clone_or_update_constructs_ssh_command(monkeypatch):
-    monkeypatch.setenv('SSH_USER', 'agent')
+    monkeypatch.setenv('AGENT_SSH_USER', 'agent')
     from agent import clone_or_update
 
     with patch('subprocess.run') as mock_run:
@@ -86,7 +86,7 @@ def test_clone_or_update_constructs_ssh_command(monkeypatch):
 
 
 def test_clone_or_update_exits_on_failure(monkeypatch):
-    monkeypatch.setenv('SSH_USER', 'agent')
+    monkeypatch.setenv('AGENT_SSH_USER', 'agent')
     from agent import clone_or_update
 
     with patch('subprocess.run') as mock_run:

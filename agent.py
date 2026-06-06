@@ -17,7 +17,7 @@ Peer mode (--node):
 Environment:
   FOREIGN_AGENT_URL    OpenAI-compatible base URL of the remote model
   FOREIGN_AGENT_MODEL  Model name to request
-  SSH_USER             Username for SSH connections in peer mode (see load-topology-skill)
+  AGENT_SSH_USER       Username for SSH connections in peer mode (see load-topology-skill)
 """
 
 import argparse
@@ -75,7 +75,7 @@ def print_prefixed(text: str, prefix: str, suffix: str = '') -> None:
 
 
 def clone_or_update(node: str, repo: str, remote_path: str) -> None:
-    ssh_user = os.environ.get('SSH_USER', '')
+    ssh_user = os.environ.get('AGENT_SSH_USER', '')
     target = f'{ssh_user}@{node}' if ssh_user else node
     command = (
         f'[ -d {remote_path}/.git ] '
