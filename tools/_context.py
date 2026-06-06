@@ -9,7 +9,7 @@ ssh_node: str = ""
 
 def run_command(command: str, timeout: int = 30) -> str:
     if ssh_node:
-        ssh_user = os.environ.get('SSH_USER', '')
+        ssh_user = os.environ.get('AGENT_SSH_USER', '')
         target = f'{ssh_user}@{ssh_node}' if ssh_user else ssh_node
         # Command runs on the remote node via SSH. The remote shell interprets the command.
         cmd = ['ssh', target, f'cd {working_directory} && {command}']
