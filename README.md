@@ -8,29 +8,29 @@ Depends on [load-topology-skill](https://github.com/nicholasf/load-topology-skil
 
 ## Examples
 
-The node argument uses the convention `<machine>[-<llm>[-<runtime>]]`. Omit the parts you don't need — sensible defaults are applied from the topology. Agents are referred to as `pond-qwen-goose`, `pond-qwen-hermes`, `gollum-mistral-hermes`, etc.
+The node argument is an **agent handle** — `<machine>[-<llm>[-<runtime>]]`. Omit the parts you don't need; sensible defaults are applied from the topology.
 
 ### Delegate a task
 
 ```
 /ask-foreign-agent run pond "Summarise how the auth module works"
 ```
-→ use `pond`, auto-select runtime and model. Output prefixed `[pond]`.
+→ agent handle `pond`: auto-select runtime and model. Output prefixed `[pond]`.
 
 ```
 /ask-foreign-agent run pond-qwen-hermes "Summarise how the auth module works"
 ```
-→ `pond`, qwen model, Hermes runtime. Output prefixed `[pond-qwen-hermes]`.
+→ agent handle `pond-qwen-hermes`: qwen model, Hermes runtime. Output prefixed `[pond-qwen-hermes]`.
 
 ```
 /ask-foreign-agent run pond-qwen-goose "Refactor the retry logic and open a PR"
 ```
-→ `pond`, qwen model, Goose ACP runtime.
+→ agent handle `pond-qwen-goose`: qwen model, Goose ACP runtime.
 
 ```
 /ask-foreign-agent run gollum-mistral-hermes "Run the test suite and report failures"
 ```
-→ `gollum`, mistral model, Hermes runtime.
+→ agent handle `gollum-mistral-hermes`: mistral model, Hermes runtime.
 
 ### Sync repo and language state
 
