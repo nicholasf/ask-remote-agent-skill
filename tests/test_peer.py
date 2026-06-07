@@ -1,0 +1,102 @@
+import pytest
+from unittest.mock import MagicMock, patch
+
+import peer
+
+TOPOLOGY = """\
+# Topology
+
+| name | hostname | hermes_gateway | hermes_key_env | goose_acp_url |
+|---|---|---|---|---|
+| — | hermes-node | http://hermes-node:8642 | HERMES_NODE_KEY | — |
+| — | goose-node | — | — | ws://goose-node:3284 |
+| — | both-node | http://both-node:8642 | BOTH_NODE_KEY | ws://both-node:3284 |
+| — | bare-node | — | — | — |
+"""
+
+
+@pytest.fixture
+def tmp_skills(tmp_path, monkeypatch):
+    monkeypatch.setenv('SKILLS_HOME', str(tmp_path))
+    monkeypatch.setenv('TOPOLOGY_PATH', str(tmp_path / 'topology.md'))
+    (tmp_path / 'topology.md').write_text(TOPOLOGY)
+    return tmp_path
+
+
+# --- _load_skills_env ---
+
+def test_load_skills_env_reads_key_value_pairs(tmp_skills):
+    (tmp_skills / '.env').write_text('FOO=bar\nBAZ=qux\n')
+    env = peer._load_skills_env()
+    assert env['FOO'] == 'bar'
+    assert env['BAZ'] == 'qux'
+
+
+def test_load_skills_env_ignores_comments(tmp_skills):
+    (tmp_skills / '.env').write_text('# this is a comment\nKEY=val\n')
+    env = peer._load_skills_env()
+    assert list(env.keys()) == ['KEY']
+
+
+def test_load_skills_env_missing_file_returns_empty(tmp_skills):
+    assert peer._load_skills_env() == {}
+
+
+# --- _topology_node ---
+
+def test_topology_node_found(tmp_skills):
+    node = peer._topology_node('hermes-node')
+    assert node['hermes_gateway'] == 'http://hermes-node:8642'
+    assert node['hermes_key_env'] == 'HERMES_NODE_KEY'
+
+
+def test_topology_node_not_found_returns_empty(tmp_skills):
+    assert peer._topology_node('unknown') == {}
+
+
+def test_topology_node_missing_file_returns_empty(tmp_skills):
+    (tmp_skills / 'topology.md').unlink()
+    assert peer._topology_node('hermes-node') == {}
+
+
+# --- run_peer routing ---
+
+def test_run_peer_routes_to_hermes(tmp_skills):
+    (tmp_skills / '.env').write_text('HERMES_NODE_KEY=testkey\n')
+    mock_response = MagicMock()
+    mock_response.content = 'hello from hermes'
+
+    with patch('peer.ChatOpenAI') as mock_cls:
+        mock_cls.return_value.invoke.return_value = mock_response
+        result = peer.run_peer('test task', 'hermes-node', 'hermes-node')
+
+    assert result == 'hello from hermes'
+    kwargs = mock_cls.call_args.kwargs
+    assert 'hermes-node:8642' in kwargs['base_url']
+    assert kwargs['api_key'] == 'testkey'
+
+
+def test_run_peer_routes_to_goose(tmp_skills):
+    with patch('goose.acp.prompt', return_value='hello from goose') as mock_prompt:
+        result = peer.run_peer('test task', 'goose-node', 'goose-node')
+
+    assert result == 'hello from goose'
+    mock_prompt.assert_called_once_with('ws://goose-node:3284', 'test task')
+
+
+def test_run_peer_prefers_goose_when_both_configured(tmp_skills):
+    with patch('goose.acp.prompt', return_value='goose wins') as mock_prompt:
+        result = peer.run_peer('test task', 'both-node', 'both-node')
+
+    assert result == 'goose wins'
+    mock_prompt.assert_called_once()
+
+
+def test_run_peer_exits_when_no_gateway(tmp_skills):
+    with pytest.raises(SystemExit):
+        peer.run_peer('test task', 'bare-node', 'bare-node')
+
+
+def test_run_peer_exits_when_node_not_in_topology(tmp_skills):
+    with pytest.raises(SystemExit):
+        peer.run_peer('test task', 'nonexistent', 'nonexistent')

@@ -3,11 +3,11 @@
 ask-foreign-agent: delegate tasks to a remote autonomous agent runtime.
 
 Peer mode:
-  The remote node runs an agent runtime (Hermes, Goose, etc.). The
-  orchestrating agent sends a task and receives an autonomous result.
-  Gateway URL and Bearer token are read from topology.md and $SKILLS_HOME/.env.
+  The remote node runs an agent runtime (Hermes or Goose). The orchestrating
+  agent sends a task and receives an autonomous result. The runtime is selected
+  automatically based on which gateway is configured in topology.md.
 
-  python3 agent.py --peer-node <hostname> "Your task"
+  python3 peer.py --peer-node <hostname> "Your task"
 
 Environment:
   SKILLS_HOME    Root directory for skills and topology (default: ~/.agents/skills)
@@ -18,6 +18,7 @@ import argparse
 import os
 import sys
 
+import goose.acp
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
@@ -48,7 +49,7 @@ def _topology_node(hostname: str) -> dict[str, str]:
     if len(rows) < 3:
         return {}
     headers = [h.strip() for h in rows[0].strip('|').split('|')]
-    for row in rows[2:]:  # skip separator line
+    for row in rows[2:]:
         values = [v.strip() for v in row.strip('|').split('|')]
         node = dict(zip(headers, values))
         if node.get('hostname') == hostname:
@@ -56,20 +57,18 @@ def _topology_node(hostname: str) -> dict[str, str]:
     return {}
 
 
+def _clean(val: str) -> str:
+    return val.replace('—', '').strip()
+
+
 def print_prefixed(text: str, prefix: str) -> None:
     for line in str(text).splitlines():
         print(f'[{prefix}] {line}')
 
 
-def run_peer(message: str, peer_node: str, prefix: str) -> str:
-    node = _topology_node(peer_node)
-    gateway = node.get('hermes_gateway', '').replace('—', '').strip()
-    key_env = node.get('hermes_key_env', '').replace('—', '').strip()
-
-    if not gateway:
-        print(f'[{prefix}] error: no hermes_gateway entry for {peer_node!r} in topology.md', file=sys.stderr)
-        sys.exit(1)
-
+def _run_hermes(message: str, node: dict, prefix: str) -> str:
+    gateway = _clean(node.get('hermes_gateway', ''))
+    key_env = _clean(node.get('hermes_key_env', ''))
     api_key = _load_skills_env().get(key_env, '') if key_env else ''
 
     llm = ChatOpenAI(
@@ -78,10 +77,26 @@ def run_peer(message: str, peer_node: str, prefix: str) -> str:
         model='hermes-agent',
         temperature=0,
     )
-
     print(f'\n[{prefix}] peer → {gateway}\n', flush=True)
-    response = llm.invoke([HumanMessage(content=message)])
-    output = str(response.content)
+    return str(llm.invoke([HumanMessage(content=message)]).content)
+
+
+def _run_goose(message: str, node: dict, prefix: str) -> str:
+    acp_url = _clean(node.get('goose_acp_url', ''))
+    print(f'\n[{prefix}] peer → {acp_url}\n', flush=True)
+    return goose.acp.prompt(acp_url, message)
+
+
+def run_peer(message: str, peer_node: str, prefix: str) -> str:
+    node = _topology_node(peer_node)
+
+    if _clean(node.get('goose_acp_url', '')):
+        output = _run_goose(message, node, prefix)
+    elif _clean(node.get('hermes_gateway', '')):
+        output = _run_hermes(message, node, prefix)
+    else:
+        print(f'[{prefix}] error: no agent gateway configured for {peer_node!r} in topology.md', file=sys.stderr)
+        sys.exit(1)
 
     print_prefixed(output, prefix)
     print(flush=True)

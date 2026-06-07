@@ -140,5 +140,5 @@ From the orchestrating machine:
 curl -s -H "Authorization: Bearer <key>" http://<hostname>:8642/v1/models
 
 # Full agent invocation
-python3 agent.py --peer-node <hostname> "say hello in one word"
+python3 peer.py --peer-node <hostname> "say hello in one word"
 ```

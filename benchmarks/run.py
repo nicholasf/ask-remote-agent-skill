@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Peer mode benchmarks — send coding tasks to pond-qwen-agent via Hermes gateway
-and evaluate the responses.
+Peer mode benchmarks — send coding tasks to a remote agent runtime and evaluate
+the responses.
 
 Usage:
-    python3 benchmarks/run.py [--peer-node <hostname>] [--verbose]
+    python3 benchmarks/run.py [--peer-node <hostname>] [--runtime goose|hermes] [--verbose]
 
-Defaults to pond. Each task is sent via run_peer(), the response is stripped
-of <think> blocks, then checked against a simple pass criterion.
+Defaults to pond, auto-selects runtime from topology. Pass --runtime to force a
+specific backend for side-by-side comparison.
 """
 
 import argparse
@@ -19,7 +19,7 @@ from io import StringIO
 from typing import Callable
 
 sys.path.insert(0, '.')
-from agent import run_peer
+from peer import _topology_node, _run_goose, _run_hermes, _clean as _clean_val
 
 _THINK_RE = re.compile(r'<think>.*?</think>', re.DOTALL)
 
@@ -109,8 +109,20 @@ TASKS = [
 ]
 
 
-def run_benchmarks(peer_node: str, verbose: bool) -> None:
-    print(f'Benchmarking peer mode → {peer_node}')
+def _run(task_message: str, peer_node: str, runtime: str) -> str:
+    node = _topology_node(peer_node)
+    if runtime == 'goose':
+        return _run_goose(task_message, node, peer_node)
+    if runtime == 'hermes':
+        return _run_hermes(task_message, node, peer_node)
+    # auto: prefer goose
+    if _clean_val(node.get('goose_acp_url', '')):
+        return _run_goose(task_message, node, peer_node)
+    return _run_hermes(task_message, node, peer_node)
+
+
+def run_benchmarks(peer_node: str, runtime: str, verbose: bool) -> None:
+    print(f'Benchmarking peer mode → {peer_node}  runtime={runtime}')
     print(f'Tasks: {len(TASKS)}\n')
 
     results = []
@@ -118,11 +130,10 @@ def run_benchmarks(peer_node: str, verbose: bool) -> None:
         print(f'  [{task.name}] running...', flush=True)
         start = time.time()
         try:
-            # Suppress run_peer's stdout during capture; we still want the return value.
             old_stdout = sys.stdout
             sys.stdout = StringIO()
             try:
-                output = run_peer(task.message, peer_node, peer_node)
+                output = _run(task.message, peer_node, runtime)
             finally:
                 sys.stdout = old_stdout
 
@@ -166,6 +177,8 @@ def run_benchmarks(peer_node: str, verbose: bool) -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Peer mode benchmarks')
     parser.add_argument('--peer-node', default='pond', help='Target node hostname')
+    parser.add_argument('--runtime', default='auto', choices=['auto', 'goose', 'hermes'],
+                        help='Force a specific agent runtime (default: auto)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Print responses')
     args = parser.parse_args()
-    run_benchmarks(args.peer_node, args.verbose)
+    run_benchmarks(args.peer_node, args.runtime, args.verbose)

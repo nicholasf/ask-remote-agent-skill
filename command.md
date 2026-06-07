@@ -15,12 +15,15 @@ Refer to agents as `<machine>-<llm>-agent`, e.g. `dtv-claude-agent`,
 
 1. Load the topology (load-topology-skill) — this sources `$SKILLS_HOME/.env`
    and reads `topology.md`.
-2. Confirm the target node has a `hermes_gateway` (or `goose_gateway`) entry.
+2. Confirm the target node has a `hermes_gateway` or `goose_acp_url` entry.
 3. Verify the gateway is reachable:
 
 ```bash
-curl -s -H "Authorization: Bearer $<NODE>_HERMES_KEY" \
-  http://<hostname>:8642/v1/models
+# Hermes
+curl -s -H "Authorization: Bearer $<NODE>_HERMES_KEY" http://<hostname>:8642/v1/models
+
+# Goose — a 404 with acp headers confirms the server is up
+curl -sv http://<hostname>:3284/ 2>&1 | grep "acp-connection-id"
 ```
 
 ---
@@ -29,7 +32,7 @@ curl -s -H "Authorization: Bearer $<NODE>_HERMES_KEY" \
 
 ```bash
 "${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/.venv/bin/python3" \
-  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/agent.py" \
+  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/peer.py" \
   --peer-node <hostname> \
   "<task>"
 ```
@@ -44,7 +47,7 @@ and `$SKILLS_HOME/.env`. No flags needed beyond `--peer-node`.
 | Runtime | Setup guide | topology columns |
 |---|---|---|
 | Hermes | `docs/agents/hermes.md` | `hermes_gateway`, `hermes_key_env` |
-| Goose | `docs/agents/goose.md` | _pending setup_ |
+| Goose | `docs/agents/goose.md` | `goose_acp_url` |
 
 ---
 
