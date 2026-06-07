@@ -1,7 +1,7 @@
 [project]
 name = "ask-foreign-agent-skill"
 version = "0.1.0"
-description = "Bridge skill: lets a remote LLM agent use local tools via Claude as intermediary"
+description = "Delegate tasks to a remote autonomous agent runtime (Hermes, Goose)"
 requires-python = ">=3.11"
 dependencies = [
     "langchain-core>=0.3",

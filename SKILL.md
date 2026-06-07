@@ -1,8 +1,8 @@
 ---
 name: ask-foreign-agent
-description: Run a remote LLM node as an interactive agent. Bridge mode (local) proxies tool calls on the orchestrating machine. Bridge mode (SSH) executes tool calls on a remote node via SSH. Peer mode (agent-to-agent) requires Hermes on the remote node — pending setup. Depends on load-topology-skill to identify available nodes.
+description: Delegate tasks to a remote autonomous agent runtime (Hermes, Goose). Peer mode sends a task to the agent's HTTP gateway; the remote agent executes autonomously and returns a result. Depends on load-topology-skill to identify available nodes and their gateway URLs.
 depends_on:
   - load-topology-skill
 ---
 
-Read the topology (load-topology-skill) to find the node hostname and verify it is online before invoking. Invoke `/ask-foreign-agent` for the full workflow.
+Read the topology (load-topology-skill) to find the node hostname and verify its agent gateway is running before invoking. Invoke `/ask-foreign-agent` for the full workflow.
