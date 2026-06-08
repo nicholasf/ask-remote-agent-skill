@@ -6,6 +6,21 @@ from unittest.mock import MagicMock, patch
 
 import peer
 
+TOPOLOGY_WITH_AGENT_STATE = """\
+# Topology
+
+| name | hostname | hermes_gateway | hermes_key_env | goose_acp_url |
+|---|---|---|---|---|
+| — | pond | http://pond:8642 | POND_KEY | — |
+
+## Agent State
+*Last updated: 2026-06-01T00-00-00*
+
+| hostname | agent | endpoint | status | process | last-seen |
+|---|---|---|---|---|---|
+| pond | hermes | http://pond:8642 | up | running | 2026-06-01T00-00-00 |
+"""
+
 TOPOLOGY = """\
 # Topology
 
@@ -329,3 +344,56 @@ def test_run_sync_returns_error_on_invalid_json(tmp_skills, git_repo):
 
     assert 'error' in result
     assert 'raw' in result
+
+
+# --- _update_agent_state_field ---
+
+@pytest.fixture
+def tmp_skills_with_agent_state(tmp_path, monkeypatch):
+    monkeypatch.setenv('SKILLS_HOME', str(tmp_path))
+    monkeypatch.setenv('TOPOLOGY_PATH', str(tmp_path / 'topology.md'))
+    (tmp_path / 'topology.md').write_text(TOPOLOGY_WITH_AGENT_STATE)
+    return tmp_path
+
+
+def test_update_agent_state_field_sets_new_column(tmp_skills_with_agent_state):
+    ok = peer._update_agent_state_field('pond', 'hermes', 'reasoning_buffer', '12000')
+    assert ok is True
+    content = (tmp_skills_with_agent_state / 'topology.md').read_text()
+    assert 'reasoning_buffer' in content
+    assert '12000' in content
+
+
+def test_update_agent_state_field_updates_existing_column(tmp_skills_with_agent_state):
+    peer._update_agent_state_field('pond', 'hermes', 'reasoning_buffer', '12000')
+    peer._update_agent_state_field('pond', 'hermes', 'reasoning_buffer', '8000')
+    content = (tmp_skills_with_agent_state / 'topology.md').read_text()
+    assert '8000' in content
+    assert '12000' not in content
+
+
+def test_update_agent_state_field_returns_false_for_missing_row(tmp_skills_with_agent_state):
+    ok = peer._update_agent_state_field('nonexistent', 'hermes', 'reasoning_buffer', '12000')
+    assert ok is False
+
+
+def test_update_agent_state_field_returns_false_when_no_agent_state_section(tmp_skills):
+    ok = peer._update_agent_state_field('hermes-node', 'hermes', 'reasoning_buffer', '12000')
+    assert ok is False
+
+
+def test_update_agent_state_field_returns_false_when_topology_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv('TOPOLOGY_PATH', str(tmp_path / 'missing.md'))
+    ok = peer._update_agent_state_field('pond', 'hermes', 'reasoning_buffer', '12000')
+    assert ok is False
+
+
+def test_update_agent_state_field_preserves_other_rows(tmp_skills_with_agent_state):
+    content = (tmp_skills_with_agent_state / 'topology.md').read_text()
+    content = content.rstrip('\n') + '\n| pond | goose | ws://pond:3284 | up | running | 2026-06-01 |\n'
+    (tmp_skills_with_agent_state / 'topology.md').write_text(content)
+
+    peer._update_agent_state_field('pond', 'hermes', 'reasoning_buffer', '12000')
+    updated = (tmp_skills_with_agent_state / 'topology.md').read_text()
+    assert 'goose' in updated
+    assert '12000' in updated

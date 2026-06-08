@@ -117,6 +117,74 @@ def _topology_node(hostname: str) -> dict[str, str]:
     return {}
 
 
+def _get_topology_path() -> str:
+    skills_home = os.environ.get('SKILLS_HOME', os.path.expanduser('~/.agents/skills'))
+    return os.environ.get('TOPOLOGY_PATH', os.path.join(skills_home, 'topology.md'))
+
+
+def _update_agent_state_field(hostname: str, agent_name: str, field: str, value: str) -> bool:
+    """Update a single field in the Agent State table for the given (hostname, agent) row.
+
+    Returns True if the row was found and updated, False otherwise.
+    Adds the column to the table if it is not present yet.
+    """
+    path = _get_topology_path()
+    try:
+        with open(path) as f:
+            content = f.read()
+    except FileNotFoundError:
+        return False
+
+    lines = content.splitlines()
+
+    section_start = -1
+    for i, line in enumerate(lines):
+        if line.strip() == '## Agent State':
+            section_start = i
+            break
+    if section_start == -1:
+        return False
+
+    header_idx = -1
+    for i in range(section_start, len(lines)):
+        if lines[i].startswith('| hostname'):
+            header_idx = i
+            break
+    if header_idx == -1:
+        return False
+
+    headers = [h.strip() for h in lines[header_idx].split('|')[1:-1]]
+
+    if field not in headers:
+        headers.append(field)
+        lines[header_idx] = '| ' + ' | '.join(headers) + ' |'
+        sep_idx = header_idx + 1
+        lines[sep_idx] = '|' + '|'.join('---' for _ in headers) + '|'
+
+    col_idx = headers.index(field)
+
+    updated = False
+    for i in range(header_idx + 2, len(lines)):
+        line = lines[i]
+        if not line.startswith('|'):
+            break
+        parts = [p.strip() for p in line.split('|')[1:-1]]
+        while len(parts) < len(headers):
+            parts.append('—')
+        if parts[0] == hostname and parts[1] == agent_name:
+            parts[col_idx] = value
+            lines[i] = '| ' + ' | '.join(parts) + ' |'
+            updated = True
+            break
+
+    if not updated:
+        return False
+
+    with open(path, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
+    return True
+
+
 def _clean(val: str) -> str:
     return val.replace('—', '').strip()
 
@@ -313,6 +381,11 @@ def main() -> None:
     sync_p.add_argument('--agent', default='auto', choices=['auto', 'goose', 'hermes'],
                         help='Force a specific agent (default: auto)')
 
+    topo_p = subparsers.add_parser('topology', help='Update topology.md fields for an agent handle')
+    topo_p.add_argument('node', help='Agent handle (e.g. pond-qwen-hermes)')
+    topo_p.add_argument('--reasoning-buffer', type=int, metavar='N',
+                        help='Set reasoning_buffer token count in Agent State for this handle')
+
     args = parser.parse_args()
 
     known_hosts = _all_topology_hostnames()
@@ -321,6 +394,20 @@ def main() -> None:
 
     if args.command == 'run':
         run_peer(' '.join(args.message), hostname, args.node, agent=agent)
+    elif args.command == 'topology':
+        agent_rt = agent_from_name or 'hermes'
+        changed = False
+        if args.reasoning_buffer is not None:
+            ok = _update_agent_state_field(hostname, agent_rt, 'reasoning_buffer', str(args.reasoning_buffer))
+            if ok:
+                print(f'Updated reasoning_buffer={args.reasoning_buffer} for {hostname}/{agent_rt}')
+                changed = True
+            else:
+                print(f'No Agent State row found for {hostname}/{agent_rt} in topology.md', file=sys.stderr)
+                sys.exit(1)
+        if not changed:
+            print('No fields specified. Use --reasoning-buffer N.', file=sys.stderr)
+            sys.exit(1)
     elif args.command == 'sync':
         repo = args.repo or _git_root(os.getcwd())
         langs: dict[str, str] = {}
