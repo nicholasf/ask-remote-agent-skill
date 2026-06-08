@@ -36,8 +36,8 @@ curl -sv http://<hostname>:3284/ 2>&1 | grep "acp-connection-id"
 ### run — delegate a task
 
 ```bash
-"${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/.venv/bin/python3" \
-  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/peer.py" \
+"${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/.venv/bin/python3" \
+  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/peer.py" \
   run <node> "<task>"
 ```
 
@@ -48,8 +48,8 @@ read automatically from `topology.md` and `$SKILLS_HOME/.env`.
 ### sync — negotiate repo and language state
 
 ```bash
-"${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/.venv/bin/python3" \
-  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-foreign-agent-skill/peer.py" \
+"${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/.venv/bin/python3" \
+  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/peer.py" \
   sync <node> [--repo /path/to/repo] [--lang python=3.11]
 ```
 
@@ -78,12 +78,39 @@ remote up to date. The remote agent can act on the report autonomously.
 
 ---
 
+## Topology subcommand
+
+When configuring an agent handle for the first time, or after switching between thinking-enabled and standard model modes, set `reasoning_buffer` in topology.md:
+
+```bash
+"${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/.venv/bin/python3" \
+  "${SKILLS_HOME:-$HOME/.agents/skills}/ask-remote-agent-skill/peer.py" \
+  topology <node> --reasoning-buffer <N>
+```
+
+`--reasoning-buffer N` sets the `reasoning_buffer` column in the `## Agent State` table of `topology.md` for the agent handle. This value is read by track-tasks-skill during pre-flight token estimation to determine whether an estimated task fits the remote context window.
+
+**When to set it:**
+- When configuring a new agent handle for the first time
+- When switching the model between thinking-enabled (e.g. Qwen3 with `<think>` blocks) and standard modes
+- After a benchmark reveals the default estimate overflows consistently
+
+**Guidance:**
+- Qwen3 with extended thinking enabled: `12000`
+- Qwen2.5 or models without extended thinking: `0`
+
+The value is preserved across `load-topology discover` runs; only this command changes it.
+
+---
+
 ## Supported agents
 
 | Agent | Setup guide | topology columns |
 |---|---|---|
 | Hermes | `docs/agents/hermes.md` | `hermes_gateway`, `hermes_key_env` |
 | Goose | `docs/agents/goose.md` | `goose_acp_url` |
+
+Both agent types share the `reasoning_buffer` column in `## Agent State` (set via the `topology` subcommand above).
 
 ---
 
