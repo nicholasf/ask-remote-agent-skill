@@ -1,4 +1,4 @@
-# ask-foreign-agent-skill
+# ask-remote-agent-skill
 
 Delegate tasks to a remote autonomous agent (Hermes, Goose ACP). 
 
