@@ -12,6 +12,7 @@ Environment:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -248,8 +249,15 @@ def _call_agent(message: str, node: dict, peer_node: str, agent: str) -> str:
 
 
 def run_peer(message: str, peer_node: str, prefix: str, agent: str = 'auto') -> str:
+    fingerprint = _compute_fingerprint(_git_root(os.getcwd()))
+    preamble = (
+        f'State fingerprint: {fingerprint}\n'
+        f'Before proceeding with this task, run `peer.py sync` locally to compute your own '
+        f'state fingerprint (branch, sha1, language versions). If your fingerprint does not '
+        f'match {fingerprint}, stop and report the mismatch — do not proceed with the task.\n\n'
+    )
     node = _topology_node(peer_node)
-    output = _call_agent(message, node, peer_node, agent)
+    output = _call_agent(preamble + message, node, peer_node, agent)
     print_prefixed(output, prefix)
     print(flush=True)
     return output
@@ -306,6 +314,15 @@ def _git_info(repo_path: str) -> dict[str, str]:
         'branch': git('branch', '--show-current'),
         'remote_url': git('remote', 'get-url', 'origin'),
     }
+
+
+def _compute_fingerprint(repo_path: str) -> str:
+    """Return a 12-char hex fingerprint of branch, sha1, and sorted language versions."""
+    git = _git_info(repo_path)
+    langs = _detect_langs(repo_path)
+    lang_str = ','.join(f'{k}={v}' for k, v in sorted(langs.items()))
+    raw = f"{git.get('branch', '')}:{git.get('sha1', '')}:{lang_str}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
 
 def _sync_prompt(repo_name: str, remote_url: str, branch: str, sha1: str, langs: dict[str, str]) -> str:

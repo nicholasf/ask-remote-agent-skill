@@ -12,58 +12,60 @@ The remote agent receives the task, executes it using its own local tools, and r
 
 Each command takes an **agent handle** — a `<machine>[-<llm>[-<agent>]]` address that identifies exactly which agent to talk to. Start with just the machine name and add specificity as needed; unspecified parts are filled in from the topology.
 
-### Delegate a task
+### Recommended workflow: sync then run
+
+Before delegating a task, sync to verify the remote agent is on the same branch, sha1, and language versions. If it is not, the sync output tells you what needs to change and the remote agent can act on it autonomously.
+
+**Step 1 — sync**
 
 ```
-/ask-foreign-agent run pond "Summarise how the auth module works"
-```
-Agent handle `pond` — machine only. Agent and model are auto-selected from the topology.
-
-```
-/ask-foreign-agent run pond-hermes "Summarise how the auth module works"
-```
-Agent handle `pond-hermes` — machine and agent specified, model defaults to whatever Hermes is running on pond.
-
-```
-/ask-foreign-agent run pond-qwen3-hermes "Summarise how the auth module works"
-```
-Agent handle `pond-qwen3-hermes` — machine, LLM family, and agent all specified.
-
-```
-/ask-foreign-agent run pond-qwen3-32b-hermes "Refactor the retry logic and open a PR"
-```
-Agent handle `pond-qwen3-32b-hermes` — fully qualified: machine `pond`, model `qwen3-32b`, agent Hermes.
-
-### Sync repo and language state
-
-```
-/ask-foreign-agent sync yggd
+/ask-foreign-agent sync pond-qwen-hermes
 ```
 
-That's it for the common case. The repo is detected from the current git root; language versions are auto-detected from the project's indicator files (`pyproject.toml`, `go.mod`, `package.json`, etc.) and locally installed versions. The remote agent locates the repo or returns what it needs to catch up.
-
-With an explicit agent handle and repo:
-
-```
-/ask-foreign-agent sync yggd-qwen-hermes --repo /home/user/code/my-project
-```
-
-Returns structured JSON showing whether the remote has the local HEAD commit and whether language versions match:
+The repo is detected from the current git root; language versions are auto-detected from indicator files (`pyproject.toml`, `go.mod`, `package.json`, etc.). Returns structured JSON:
 
 ```json
 {
-  "repo_path": "/home/user/code/my-project",
+  "repo_path": "/home/nicholasf/code/github/nicholasf/yggd",
   "sha1_present": true,
-  "remote_sha1": "4f9a2c1...",
+  "remote_sha1": "4f9a2c1d8e3b...",
   "git_commands": [],
   "languages": {
-    "python": {"requested": "3.11.0", "found": "3.12.0", "match": false},
-    "node":   {"requested": "20.11.0", "found": "20.11.0", "match": true}
+    "node":   {"requested": "20.11.0", "found": "20.11.0", "match": true},
+    "python": {"requested": "3.11.0",  "found": "3.12.0",  "match": false}
   }
 }
 ```
 
-If `sha1_present` is `false`, `git_commands` lists the steps to bring the remote up to date. The remote agent can act on the report autonomously.
+If `sha1_present` is `false`, `git_commands` lists the steps to bring the remote up to date.
+
+With an explicit repo path:
+
+```
+/ask-foreign-agent sync pond-qwen-hermes --repo /home/user/code/my-project
+```
+
+**Step 2 — run**
+
+```
+/ask-foreign-agent run pond-qwen-hermes "Execute the task at tasks/pending/2026-06-13T12-00-00-add-logging.md"
+```
+
+`run` automatically prepends a **state fingerprint** to every message — a 12-character hex digest of the local branch, HEAD sha1, and language versions. The remote agent is instructed to compute its own fingerprint via `peer.py sync` and compare. If the fingerprints differ, it stops and reports the mismatch rather than proceeding with stale state.
+
+This means `run` is self-verifying: you do not need to inspect the sync output manually before every delegation, but running `sync` first is still recommended to align state proactively.
+
+### Agent handle variants
+
+```
+/ask-foreign-agent run pond "Summarise how the auth module works"
+```
+Machine only — agent and model auto-selected from topology.
+
+```
+/ask-foreign-agent run pond-qwen-hermes "Refactor the retry logic and open a PR"
+```
+Fully qualified: machine `pond`, LLM `qwen`, agent `hermes`.
 
 ---
 
