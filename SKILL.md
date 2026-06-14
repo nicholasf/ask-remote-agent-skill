@@ -5,4 +5,10 @@ depends_on:
   - load-topology-skill
 ---
 
+## NOTE
+
+**Always invoke this skill via its slash command — never construct the shell commands manually.**
+
+When the user asks to delegate a task to pond or another node via natural language, invoke `/ask-foreign-agent`. The skill's own logic handles topology verification, agent health checks, and the correct peer.py invocation. Constructing the shell command manually bypasses these safeguards and leads to silent failures or hangs.
+
 Read the topology (load-topology-skill) to find the node hostname and verify its agent gateway is running before invoking. Invoke `/ask-foreign-agent` for the full workflow.
